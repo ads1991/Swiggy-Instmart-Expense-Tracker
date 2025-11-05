@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<canvas id="canvas" width="128" height="128"></canvas>
+<script>
+const sizes = [16, 48, 128];
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+sizes.forEach(size => {
+  canvas.width = size;
+  canvas.height = size;
+  
+  // Orange background with rounded corners
+  ctx.fillStyle = '#fc8019';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, size/6);
+  ctx.fill();
+  
+  // Burger emoji
+  ctx.font = `${size * 0.6}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🍔', size/2, size/2);
+  
+  // Download
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `icon${size}.png`;
+    a.click();
+  });
+});
+</script>
+<p>Open this file in a browser to generate icon16.png, icon48.png, and icon128.png. Save them in this folder.</p>
+</body>
+</html>
