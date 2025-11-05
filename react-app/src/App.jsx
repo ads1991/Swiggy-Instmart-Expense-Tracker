@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, DollarSign, ShoppingBag, Download, RefreshCw } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Download, RefreshCw, MapPin } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 function App() {
@@ -135,7 +135,8 @@ function App() {
 
     const monthlyData = groupByMonth(orders);
     const restaurantData = groupByRestaurant(orders);
-    const recentOrders = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+    const itemData = groupByItems(orders);
+    const recentOrders = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     setStats({
       totalSpent,
@@ -147,6 +148,7 @@ function App() {
       serviceBreakdown,
       monthlyData,
       restaurantData,
+      itemData,
       recentOrders
     });
   };
@@ -186,6 +188,24 @@ function App() {
     });
 
     return Object.values(grouped).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  };
+
+  const groupByItems = (orders) => {
+    const grouped = {};
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const itemName = item.name;
+          if (!grouped[itemName]) {
+            grouped[itemName] = { name: itemName, count: 0, totalSpent: 0 };
+          }
+          grouped[itemName].count += parseInt(item.quantity) || 1;
+          grouped[itemName].totalSpent += parseFloat(item.price) * (parseInt(item.quantity) || 1);
+        });
+      }
+    });
+
+    return Object.values(grouped).sort((a, b) => b.count - a.count).slice(0, 10);
   };
 
   const exportToExcel = () => {
@@ -233,72 +253,11 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 py-8">
       <div className="container mx-auto px-4">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">🍔 Swiggy Expense Tracker</h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Swiggy Expense Tracker</h1>
           <p className="text-gray-600">Analyze your food delivery expenses</p>
         </div>
 
-        {/* Service Filter Buttons */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-gray-700 font-semibold mr-2">Filter by Service:</span>
-            <button
-              onClick={() => setSelectedService('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedService === 'all'
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              All ({stats?.serviceBreakdown?.food + stats?.serviceBreakdown?.instamart + stats?.serviceBreakdown?.dineout + stats?.serviceBreakdown?.genie || 0})
-            </button>
-            <button
-              onClick={() => setSelectedService('food')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedService === 'food'
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              🍔 Food ({stats?.serviceBreakdown?.food || 0})
-            </button>
-            <button
-              onClick={() => setSelectedService('instamart')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedService === 'instamart'
-                  ? 'bg-green-500 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              🛒 Instamart ({stats?.serviceBreakdown?.instamart || 0})
-            </button>
-            {stats?.serviceBreakdown?.dineout > 0 && (
-              <button
-                onClick={() => setSelectedService('dineout')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedService === 'dineout'
-                    ? 'bg-purple-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                🍽️ Dineout ({stats?.serviceBreakdown?.dineout || 0})
-              </button>
-            )}
-            {stats?.serviceBreakdown?.genie > 0 && (
-              <button
-                onClick={() => setSelectedService('genie')}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedService === 'genie'
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                📦 Genie ({stats?.serviceBreakdown?.genie || 0})
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
@@ -322,9 +281,8 @@ function App() {
           <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">Total Savings</p>
-                <p className="text-3xl font-bold text-green-700">₹{(stats.totalDiscount || 0).toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">{stats.ordersWithCoupons || 0} orders with coupons</p>
+                <p className="text-gray-600 text-sm mb-1">Average Order</p>
+                <p className="text-3xl font-bold text-gray-800">₹{stats.avgOrderValue.toFixed(0)}</p>
               </div>
               <TrendingUp className="w-12 h-12 text-green-500 opacity-80" />
             </div>
@@ -333,10 +291,10 @@ function App() {
           <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm mb-1">Delivery Fees</p>
-                <p className="text-3xl font-bold text-gray-800">₹{(stats.totalDeliveryFees || 0).toFixed(2)}</p>
+                <p className="text-gray-600 text-sm mb-1">Restaurants</p>
+                <p className="text-3xl font-bold text-gray-800">{stats.restaurantData?.length || 0}</p>
               </div>
-              <TrendingUp className="w-12 h-12 text-purple-500 opacity-80" />
+              <MapPin className="w-12 h-12 text-purple-500 opacity-80" />
             </div>
           </div>
         </div>
@@ -423,10 +381,42 @@ function App() {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Orders</h2>
-          <div className="overflow-x-auto">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">🍕 Most Ordered Items</h2>
+          <div className="overflow-auto max-h-[400px]">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">#</th>
+                  <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Item Name</th>
+                  <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Times Ordered</th>
+                  <th className="px-4 py-2 text-right text-sm font-semibold text-gray-700">Total Spent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.itemData && stats.itemData.map((item, index) => (
+                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800 font-medium">{item.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 text-right">
+                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-semibold">
+                        {item.count}x
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-800 text-right font-semibold">
+                      ₹{item.totalSpent.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Order History ({stats.recentOrders.length} orders)</h2>
+          <div className="overflow-auto max-h-[500px]">
+            <table className="w-full">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Order ID</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Service</th>

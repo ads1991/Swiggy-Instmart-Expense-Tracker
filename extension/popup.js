@@ -78,7 +78,7 @@ async function extractAndRedirect() {
 
       // Open React app with data passed via URL hash
       const dataString = encodeURIComponent(JSON.stringify(response.data));
-      const appUrl = `http://localhost:5175/#data=${dataString}`;
+      const appUrl = `http://adhishree.tech/swiggy-expense/#data=${dataString}`;
 
       chrome.tabs.create({ url: appUrl });
 

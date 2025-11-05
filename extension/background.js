@@ -13,27 +13,88 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Check if user is logged in to Swiggy
+// Check if user is logged in to Swiggy by making an API call
 async function checkSwiggyLogin() {
   try {
-    // Check for Swiggy auth cookies
-    const cookies = await chrome.cookies.getAll({ domain: '.swiggy.com' });
+    // Make actual API call to verify login status
+    const response = await fetch('https://www.swiggy.com/dapi/order/all?order_id=', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        '__fetch_req__': 'true'
+      },
+      credentials: 'include'
+    });
 
-    // Look for authentication cookies (common patterns)
-    const authCookies = cookies.filter(cookie =>
-      cookie.name.toLowerCase().includes('auth') ||
-      cookie.name.toLowerCase().includes('session') ||
-      cookie.name.toLowerCase().includes('token') ||
-      cookie.name === '_sid' ||
-      cookie.name === 'tid'
-    );
+    if (!response.ok) {
+      return { isLoggedIn: false };
+    }
 
-    const isLoggedIn = authCookies.length > 0;
+    const data = await response.json();
 
-    return { isLoggedIn, cookieCount: cookies.length };
+    // Check if the response indicates user is logged in
+    // If not logged in, Swiggy returns statusCode 401 or no data
+    if (data.statusCode === 401 || data.statusCode === 403) {
+      return { isLoggedIn: false };
+    }
+
+    // Check if we have valid order data (indicates logged in)
+    const hasOrders = data?.data?.orders !== undefined;
+
+    return { isLoggedIn: hasOrders };
   } catch (error) {
     console.error('Error checking login:', error);
     return { isLoggedIn: false, error: error.message };
+  }
+}
+
+// Fetch user profile data from Swiggy
+async function fetchUserProfile() {
+  try {
+    const response = await fetch('https://www.swiggy.com/dapi/restaurants/list/v5?lat=12.9715987&lng=77.5945627', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        '__fetch_req__': 'true'
+      },
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      // Extract user info from response if available
+      if (data?.data?.cards) {
+        const userCard = data.data.cards.find(card => card?.card?.card?.userInfo);
+        if (userCard) {
+          return userCard.card.card.userInfo;
+        }
+      }
+    }
+
+    // Try account endpoint
+    const accountResponse = await fetch('https://www.swiggy.com/dapi/order/all?order_id=', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        '__fetch_req__': 'true'
+      },
+      credentials: 'include'
+    });
+
+    if (accountResponse.ok) {
+      const accountData = await accountResponse.json();
+      if (accountData?.data?.user) {
+        return accountData.data.user;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
   }
 }
 
@@ -45,6 +106,7 @@ async function extractOrdersData() {
     let hasMore = true;
     let pageCount = 0;
     const maxPages = 20; // Limit to prevent infinite loops (20 pages = ~100-200 orders)
+    let userProfile = null;
 
     // Get all cookies for authentication
     const cookies = await chrome.cookies.getAll({ domain: '.swiggy.com' });
@@ -57,6 +119,9 @@ async function extractOrdersData() {
     // Build cookie string
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
     console.log('Using cookies for authentication:', cookies.map(c => c.name).join(', '));
+
+    // Fetch user profile first
+    userProfile = await fetchUserProfile();
 
     // Fetch orders with pagination
     while (hasMore && pageCount < maxPages) {
@@ -186,6 +251,7 @@ async function extractOrdersData() {
         success: true,
         data: {
           orders: allOrders,
+          user: userProfile,
           extractedAt: new Date().toISOString(),
           source: 'swiggy_api',
           totalOrders: allOrders.length
