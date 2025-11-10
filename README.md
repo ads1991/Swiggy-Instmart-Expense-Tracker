@@ -301,3 +301,4 @@ This project is for educational and personal use only.
 **Built with ❤️ using Chrome Extensions API, React, and Swiggy's internal APIs**
 
 Last Updated: 2025-01-05
+
